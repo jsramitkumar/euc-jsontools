@@ -20,6 +20,8 @@ COPY --from=deps /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
 COPY --from=deps /app/package.json ./package.json
 COPY --from=deps /app/turbo.json ./turbo.json
 COPY --from=deps /app/tsconfig.base.json ./tsconfig.base.json
+COPY --from=deps /app/apps/api/node_modules ./apps/api/node_modules
+COPY --from=deps /app/packages/shared/node_modules ./packages/shared/node_modules
 COPY apps/api ./apps/api
 COPY packages/shared ./packages/shared
 RUN pnpm --filter @jsontools/api db:generate

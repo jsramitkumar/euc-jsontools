@@ -16,7 +16,7 @@
     "paths": {
       "@jsontools/shared": ["../../packages/shared/src/index.ts"]
     },
-    "ignoreDeprecations": "6.0",
+    "ignoreDeprecations": "5.0",
     "baseUrl": "."
   },
   "include": ["src/**/*"],
