@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import type { CompareResponse, DiffEntry } from "@jsontools/shared";
-import { Plus, Minus, Edit2, CheckCircle2, Share2, Copy } from "lucide-react";
+import { Plus, Minus, Edit2, CheckCircle2, Share2, Columns2, FileCode2 } from "lucide-react";
 
 interface DiffResultsProps {
   result: CompareResponse;
@@ -35,6 +36,9 @@ const typeConfig = {
 };
 
 export function DiffResults({ result }: DiffResultsProps) {
+  const [viewMode, setViewMode] = useState<"side-by-side" | "visual-studio">(
+    "side-by-side"
+  );
   const visibleDiffs = result.differences.filter((d) => d.type !== "unchanged");
   const shareUrl = result.shareToken
     ? `${window.location.origin}/compare/share/${result.shareToken}`
@@ -86,17 +90,52 @@ export function DiffResults({ result }: DiffResultsProps) {
         )}
       </div>
 
+      {/* Compare view toggle */}
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          View
+        </span>
+        <div className="inline-flex rounded-lg border bg-muted p-1">
+          <button
+            onClick={() => setViewMode("side-by-side")}
+            className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+              viewMode === "side-by-side"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Columns2 className="h-3.5 w-3.5" />
+            Side by Side
+          </button>
+          <button
+            onClick={() => setViewMode("visual-studio")}
+            className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+              viewMode === "visual-studio"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <FileCode2 className="h-3.5 w-3.5" />
+            VS Change View
+          </button>
+        </div>
+      </div>
+
       {/* Diff list */}
       {visibleDiffs.length > 0 && (
         <div className="flex flex-col gap-2">
           <h3 className="text-sm font-semibold">
             Differences ({visibleDiffs.length})
           </h3>
-          <div className="max-h-[500px] overflow-y-auto space-y-1.5 pr-1">
-            {visibleDiffs.map((diff, i) => (
-              <DiffRow key={i} diff={diff} />
-            ))}
-          </div>
+          {viewMode === "side-by-side" ? (
+            <div className="max-h-[500px] overflow-y-auto space-y-1.5 pr-1">
+              {visibleDiffs.map((diff, i) => (
+                <DiffRow key={i} diff={diff} />
+              ))}
+            </div>
+          ) : (
+            <VisualStudioDiffView diffs={visibleDiffs} />
+          )}
         </div>
       )}
     </div>
@@ -134,4 +173,93 @@ function DiffRow({ diff }: { diff: DiffEntry }) {
       </span>
     </div>
   );
+}
+
+function VisualStudioDiffView({ diffs }: { diffs: DiffEntry[] }) {
+  const lines = buildVsLines(diffs);
+
+  return (
+    <div className="max-h-[520px] overflow-y-auto rounded-xl border bg-card">
+      <div className="border-b bg-muted/30 px-4 py-2 text-xs text-muted-foreground">
+        Visual Studio style change map: red = removed, green = added, yellow = modified
+      </div>
+      <div className="font-mono text-xs">
+        {lines.map((line, idx) => (
+          <div
+            key={`${line.path}-${idx}`}
+            className={`grid grid-cols-[48px_26px_1fr] items-start border-b last:border-b-0 ${line.rowClass}`}
+          >
+            <div className="select-none border-r px-2 py-1.5 text-right text-muted-foreground/80">
+              {idx + 1}
+            </div>
+            <div className="select-none border-r px-2 py-1.5 text-center font-semibold">
+              {line.marker}
+            </div>
+            <div className="whitespace-pre-wrap break-words px-3 py-1.5">
+              <span className="opacity-70">{line.path}</span>
+              {"  "}
+              <span>{line.value}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function buildVsLines(diffs: DiffEntry[]): Array<{
+  path: string;
+  marker: "+" | "-" | "~";
+  value: string;
+  rowClass: string;
+}> {
+  const lines: Array<{
+    path: string;
+    marker: "+" | "-" | "~";
+    value: string;
+    rowClass: string;
+  }> = [];
+
+  for (const diff of diffs) {
+    if (diff.type === "added") {
+      lines.push({
+        path: diff.path,
+        marker: "+",
+        value: fmt(diff.newValue),
+        rowClass: "bg-green-500/10 text-green-700 dark:text-green-300",
+      });
+      continue;
+    }
+
+    if (diff.type === "removed") {
+      lines.push({
+        path: diff.path,
+        marker: "-",
+        value: fmt(diff.oldValue),
+        rowClass: "bg-red-500/10 text-red-700 dark:text-red-300",
+      });
+      continue;
+    }
+
+    if (diff.type === "modified") {
+      lines.push({
+        path: diff.path,
+        marker: "~",
+        value: `${fmt(diff.oldValue)} -> ${fmt(diff.newValue)}`,
+        rowClass: "bg-yellow-500/15 text-yellow-700 dark:text-yellow-300",
+      });
+    }
+  }
+
+  return lines;
+}
+
+function fmt(value: unknown): string {
+  if (value === undefined) return "undefined";
+  if (typeof value === "string") return JSON.stringify(value);
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
 }
