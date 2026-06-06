@@ -1,0 +1,44 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: jsontools-api
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      NODE_ENV: production
+      API_HOST: 0.0.0.0
+      API_PORT: 4000
+      NEXT_PUBLIC_APP_URL: https://jsontools.endusercompute.in
+
+      # Remote infrastructure
+      DATABASE_URL: postgresql://user:password@your-remote-postgres-host:5432/jsontools
+      REDIS_URL: redis://:password@your-remote-redis-host:6379
+
+      # Required secrets
+      JWT_SECRET: replace-with-a-min-32-char-secret
+      INTERNAL_API_KEY: replace-with-a-min-16-char-secret
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: jsontools-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      NEXT_PUBLIC_APP_URL: https://jsontools.endusercompute.in
+      NEXT_PUBLIC_API_URL: https://json-tools-api.endusercompute.in
+
+      # Next.js server-side rewrite target (internal Docker network)
+      API_URL: http://api:4000
+
+      NEXTAUTH_URL: https://jsontools.endusercompute.in
+      NEXTAUTH_SECRET: replace-with-a-long-random-secret

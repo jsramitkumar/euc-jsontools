@@ -1,0 +1,135 @@
+// Prisma schema for JSONTools SaaS platform
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===================== USERS =====================
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String?  @map("password_hash")
+  name         String?
+  avatarUrl    String?  @map("avatar_url")
+  role         Role     @default(free)
+  credits      Int      @default(10)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  apiKeys      ApiKey[]
+  usageLogs    UsageLog[]
+  comparisons  Comparison[]
+  purchases    Purchase[]
+  oauthAccounts OAuthAccount[]
+
+  @@index([email])
+  @@map("users")
+}
+
+enum Role {
+  admin
+  user
+  free
+}
+
+// ===================== OAUTH =====================
+model OAuthAccount {
+  id             String  @id @default(cuid())
+  provider       String  // "google" | "github"
+  providerUserId String  @map("provider_user_id")
+  userId         String  @map("user_id")
+  user           User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerUserId])
+  @@map("oauth_accounts")
+}
+
+// ===================== API KEYS =====================
+model ApiKey {
+  id          String    @id @default(cuid())
+  name        String
+  keyHash     String    @unique @map("key_hash")
+  keyPrefix   String    @map("key_prefix")
+  isActive    Boolean   @default(true) @map("is_active")
+  userId      String    @map("user_id")
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastUsedAt  DateTime? @map("last_used_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@index([keyHash])
+  @@index([userId])
+  @@map("api_keys")
+}
+
+// ===================== COMPARISONS =====================
+model Comparison {
+  id                 String    @id @default(cuid())
+  userId             String    @map("user_id")
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  json1              Json      @map("json1")
+  json2              Json      @map("json2")
+  options            Json      @default("{}")
+  result             Json
+  shareToken         String?   @unique @map("share_token")
+  imageUrl           String?   @map("image_url")
+  htmlUrl            String?   @map("html_url")
+  // TTL — null means the owner explicitly chose no expiry (admin/paid feature)
+  expiresAt          DateTime  @map("expires_at")
+  // Optional access control
+  isProtected        Boolean   @default(false) @map("is_protected")
+  accessPasswordHash String?   @map("access_password_hash")
+  createdAt          DateTime  @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([shareToken])
+  @@index([expiresAt])   // for efficient TTL cleanup queries
+  @@map("comparisons")
+}
+
+// ===================== USAGE LOGS =====================
+model UsageLog {
+  id               String   @id @default(cuid())
+  userId           String   @map("user_id")
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint         String
+  creditsUsed      Int      @default(1) @map("credits_used")
+  statusCode       Int      @map("status_code")
+  processingTimeMs Int      @map("processing_time_ms")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("usage_logs")
+}
+
+// ===================== PURCHASES =====================
+model Purchase {
+  id                String         @id @default(cuid())
+  userId            String         @map("user_id")
+  user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  packageId         String         @map("package_id")
+  credits           Int
+  amountInr         Int            @map("amount_inr")
+  status            PurchaseStatus @default(pending)
+  razorpayOrderId   String?        @unique @map("razorpay_order_id")
+  razorpayPaymentId String?        @map("razorpay_payment_id")
+  createdAt         DateTime       @default(now()) @map("created_at")
+  updatedAt         DateTime       @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([razorpayOrderId])
+  @@map("purchases")
+}
+
+enum PurchaseStatus {
+  pending
+  paid
+  failed
+  refunded
+}
