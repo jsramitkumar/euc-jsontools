@@ -84,7 +84,7 @@ export const jsonApi = {
   compare: (
     json1: unknown,
     json2: unknown,
-    options?: Record<string, unknown>
+    options?: import("@jsontools/shared").CompareOptions
   ) =>
     request<import("@jsontools/shared").CompareResponse>(
       "/compare",

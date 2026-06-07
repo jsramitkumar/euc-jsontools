@@ -18,7 +18,6 @@
       "@/*": ["./src/*"],
       "@jsontools/shared": ["../../packages/shared/src/index.ts"]
     },
-    "ignoreDeprecations": "6.0",
     "baseUrl": "."
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
